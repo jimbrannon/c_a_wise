@@ -1,0 +1,654 @@
+<?php
+/*
+ * implement hook_form()
+ */
+function c_a_wise_form($form,&$form_state) {
+  $form = array();
+  /*
+   * get the list of specified roles (by rid) to control from the ridnid table
+   */
+  $rid_query = db_select("c_a_wise_ridnid")
+    ->fields('c_a_wise_ridnid',array('rid'))
+    ->groupBy('rid');
+  $rid_query_results = $rid_query->execute()->fetchAll();
+  /*
+   * create a checkbox list of role names
+   */
+  $role_checkbox_options = array();
+  $role_checkbox_defaults = array();
+  $role_counter = 0;
+  foreach($rid_query_results as $rid_record) {
+  	/*
+     * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_record, TRUE)));
+     * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_record->rid, TRUE))); 
+     */
+  	/*
+     * get the role object from drupal
+     */
+    $role = user_role_load($rid_record->rid);
+    if(isset($role)) {
+    	$role_counter++;
+    	$role_checkbox_options[$rid_record->rid] = $role->name;
+    	/*
+    	 * set the defaults based on the view_any permission field setting
+    	 * this is hardwired to 'view' for now
+    	 */
+    	$access_type_for_defaults = 'view';
+    	$ridnid_query = db_select("c_a_wise_ridnid")
+    	->fields('c_a_wise_ridnid',array('rid','nid'))
+    	->condition('rid',$rid_record->rid,"=");
+    	$ridnid_query_results = $ridnid_query->execute()->fetchAll();
+    	foreach($ridnid_query_results as $ridnid_record) {
+    		/*
+    		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record, TRUE)));
+    		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->rid, TRUE)));
+    		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->nid, TRUE))); 
+    		 */
+    		$node=node_load($ridnid_record->nid);
+    		$permissions = content_access_get_per_node_settings($node);
+    		/*
+    		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($permissions, TRUE)));
+    		 */
+    		/*
+    		 * check the view_any array
+    		 */
+    		$view_any = $permissions[$access_type_for_defaults];
+    		/*
+    		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($view_any, TRUE)));
+    		 */
+    		if (in_array($rid_record->rid,$view_any)) {
+    			$role_checkbox_defaults[] = $rid_record->rid;
+    		}
+    	}
+    }
+  }
+  $form['wise_roles_checkboxes'] = array(
+  		'#type' => 'checkboxes',
+  		'#title' => t('WISE Roles'),
+  		'#description' => t('Enable or disable data input for these WISE user roles.'),
+  		'#options' => $role_checkbox_options,
+  		'#default_value' => $role_checkbox_defaults,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+function c_a_wise_form_validate(&$form, &$form_state) {
+}
+function c_a_wise_form_submit(&$form, &$form_state) {
+	/*
+	 * loop through the roles and update the content access records appropriately
+	 */
+	//drupal_set_message(sprintf('<pre>%s</pre>', print_r($form_state['values']['wise_roles_checkboxes'], TRUE)));
+	$selected_roles = array_filter($form_state['values']['wise_roles_checkboxes']);
+    //drupal_set_message(sprintf('<pre>%s</pre>', print_r($selected_roles, TRUE)));
+	/*
+	 * 
+	 */
+	foreach($form_state['values']['wise_roles_checkboxes'] as $rid=>$rid_selected) {
+		/*
+		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid, TRUE)));
+		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_selected, TRUE)));
+		 */
+		/*
+		 * get the role object from drupal
+		 */
+		$role = user_role_load($rid);
+		/*
+		 * if it is a legitimate role
+		 */
+		if(isset($role)) {
+			//drupal_set_message(sprintf('<pre>valid role rid %s</pre>', print_r($rid, TRUE)));
+			/*
+			 * find the node records for this role according to the WISE ridnid table
+			 */
+			$ridnid_query = db_select("c_a_wise_ridnid")
+			->fields('c_a_wise_ridnid',array('rid','nid','view','view_own','upd8','upd8_own','d7337','d7337_own'))
+			->condition('rid',$rid,"=");
+			$ridnid_query_results = $ridnid_query->execute()->fetchAll();
+			/*
+			 * for each node record
+			 */
+			foreach($ridnid_query_results as $ridnid_record) {
+				/*
+				 * get the ridnid record field values
+				 */
+				$nid = $ridnid_record->nid;
+				$view = $ridnid_record->view;
+				$view_own = $ridnid_record->view_own;
+				$update = $ridnid_record->upd8;
+				$update_own = $ridnid_record->upd8_own;
+				$delete = $ridnid_record->d7337;
+				$delete_own = $ridnid_record->d7337_own;
+				/*
+				 * see if this is a valid node
+				 */
+				$node = node_load($nid);
+				if (isset($node)) {
+					//drupal_set_message(sprintf('<pre>valid node nid %s</pre>', print_r($nid, TRUE)));
+					/*
+					 * node is valid, so update the content access record
+					 */
+					if($rid_selected>0) {
+						//drupal_set_message(sprintf('<pre>role selected %s</pre>', print_r($role->name, TRUE)));
+						/*
+						 * this role was selected in the checkboxes
+						 * try to get the content access record
+						 */
+						$permissions = array();
+						$permissions = content_access_get_per_node_settings($node);
+						if (isset($permissions)) {
+							/*
+							 * C A has a record for this node
+							 */
+							//drupal_set_message(sprintf('<pre>CA has record %s</pre>', print_r($permissions, TRUE)));
+							/*
+							 * rebuild permissions as new_permissions 
+							 */
+							$new_permissions = array();
+							/*
+							 * the view access settings
+							 */
+							if ($view) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$foundit=FALSE;
+								$counter=0;
+								foreach($permissions['view'] as $index=>$role_id) {
+									$new_permissions['view'][$counter] = $role_id;
+									$counter++;
+									if ($role_id == $rid) {
+										$foundit = TRUE;
+									}
+								}
+								if (!$foundit) {
+									$new_permissions['view'][$counter] = $rid;
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['view'] = $permissions['view'];
+							}
+							/*
+							 * the view_own access settings
+							 */
+							if ($view_own) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$foundit=FALSE;
+								$counter=0;
+								foreach($permissions['view_own'] as $index=>$role_id) {
+									$new_permissions['view_own'][$counter] = $role_id;
+									$counter++;
+									if ($role_id == $rid) {
+										$foundit = TRUE;
+									}
+								}
+								if (!$foundit) {
+									$new_permissions['view_own'][$counter] = $rid;
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['view_own'] = $permissions['view_own'];
+							}
+							/*
+							 * the update access settings
+							 */
+							if ($update) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$foundit=FALSE;
+								$counter=0;
+								foreach($permissions['update'] as $index=>$role_id) {
+									$new_permissions['update'][$counter] = $role_id;
+									$counter++;
+									if ($role_id == $rid) {
+										$foundit = TRUE;
+									}
+								}
+								if (!$foundit) {
+									$new_permissions['update'][$counter] = $rid;
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['update'] = $permissions['update'];
+							}
+							/*
+							 * the update_own access settings
+							 */
+							if ($update_own) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$foundit=FALSE;
+								$counter=0;
+								foreach($permissions['update_own'] as $index=>$role_id) {
+									$new_permissions['update_own'][$counter] = $role_id;
+									$counter++;
+									if ($role_id == $rid) {
+										$foundit = TRUE;
+									}
+								}
+								if (!$foundit) {
+									$new_permissions['update_own'][$counter] = $rid;
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['update_own'] = $permissions['update_own'];
+							}
+							/*
+							 * the delete access settings
+							 */
+							if ($delete) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$foundit=FALSE;
+								$counter=0;
+								foreach($permissions['delete'] as $index=>$role_id) {
+									$new_permissions['delete'][$counter] = $role_id;
+									$counter++;
+									if ($role_id == $rid) {
+										$foundit = TRUE;
+									}
+								}
+								if (!$foundit) {
+									$new_permissions['delete'][$counter] = $rid;
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['delete'] = $permissions['delete'];
+							}
+							/*
+							 * the delete_own access settings
+							 */
+							if ($delete_own) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$foundit=FALSE;
+								$counter=0;
+								foreach($permissions['delete_own'] as $index=>$role_id) {
+									$new_permissions['delete_own'][$counter] = $role_id;
+									$counter++;
+									if ($role_id == $rid) {
+										$foundit = TRUE;
+									}
+								}
+								if (!$foundit) {
+									$new_permissions['delete_own'][$counter] = $rid;
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['delete_own'] = $permissions['delete_own'];
+							}
+							//drupal_set_message(sprintf('<pre>CA has record %s</pre>', print_r($new_permissions, TRUE)));
+							content_access_save_per_node_settings($node, $new_permissions);
+						} else {
+							/*
+							 * C A has no record for this node
+							 * really should not happen, but create one with admin permissions only plus the role (not the defaults)
+							 */
+							//drupal_set_message(sprintf('<pre>CA has no record %s</pre>', print_r($permissions, TRUE)));
+							/*
+							 * rebuild permissions as new_permissions 
+							 */
+							$new_permissions = array();
+							/*
+							 * the view access settings
+							 */
+							if ($view) {
+								/*
+								 * rebuild, adding this role
+								 * sure hope it is not order dependent!!
+								 */
+								$new_permissions['view'][0] = $rid;
+								$new_permissions['view'][1] = 3; // admin
+							} else {
+								$new_permissions['view'][0] = 3; // admin
+							}
+							/*
+							 * the view_own access settings
+							 */
+							if ($view_own) {
+								/*
+								 * rebuild, adding this role
+								 * sure hope it is not order dependent!!
+								 */
+								$new_permissions['view_own'][0] = $rid;
+								$new_permissions['view_own'][1] = 3; // admin
+							} else {
+								$new_permissions['view_own'][0] = 3; // admin
+							}
+							/*
+							 * the update access settings
+							 */
+							if ($update) {
+								/*
+								 * rebuild, adding this role
+								 * sure hope it is not order dependent!!
+								 */
+								$new_permissions['update'][0] = $rid;
+								$new_permissions['update'][1] = 3; // admin
+							} else {
+								$new_permissions['update'][0] = 3; // admin
+							}
+							/*
+							 * the update_own access settings
+							 */
+							if ($update_own) {
+								/*
+								 * rebuild, adding this role
+								 * sure hope it is not order dependent!!
+								 */
+								$new_permissions['update_own'][0] = $rid;
+								$new_permissions['update_own'][1] = 3; // admin
+							} else {
+								$new_permissions['update_own'][0] = 3; // admin
+							}
+							/*
+							 * the delete access settings
+							 */
+							if ($delete) {
+								/*
+								 * rebuild, adding this role
+								 * sure hope it is not order dependent!!
+								 */
+								$new_permissions['delete'][0] = $rid;
+								$new_permissions['delete'][1] = 3; // admin
+							} else {
+								$new_permissions['delete'][0] = 3; // admin
+							}
+							/*
+							 * the delete_own access settings
+							 */
+							if ($delete_own) {
+								/*
+								 * rebuild, adding this role
+								 * sure hope it is not order dependent!!
+								 */
+								$new_permissions['delete_own'][0] = $rid;
+								$new_permissions['delete_own'][1] = 3; // admin
+							} else {
+								$new_permissions['delete_own'][0] = 3; // admin
+							}
+							//drupal_set_message(sprintf('<pre>CA has record %s</pre>', print_r($new_permissions, TRUE)));
+							content_access_save_per_node_settings($node, $new_permissions);
+						}
+					} else {
+						//drupal_set_message(sprintf('<pre>role not selected %s</pre>', print_r($role->name, TRUE)));
+						/*
+						 * this role was not selected
+						 * try to get the content access record
+						 */
+						$permissions = array();
+						$permissions = content_access_get_per_node_settings($node);
+						if (isset($permissions)) {
+							/*
+							 * C A has record for this node
+							 */
+							//drupal_set_message(sprintf('<pre>CA has record %s</pre>', print_r($permissions, TRUE)));
+							/*
+							 * rebuild permissions as new_permissions
+							 * removing this role if it is there
+							 */
+							$new_permissions = array();
+							/*
+							 * the view access settings
+							 */
+							if ($view) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$counter=0;
+								foreach($permissions['view'] as $index=>$role_id) {
+									if ($role_id == $rid) {
+										// don't add it
+									} else {
+										$new_permissions['view'][$counter] = $role_id;
+										$counter++;
+									}
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['view'] = $permissions['view'];
+							}
+							/*
+							 * the view_own access settings
+							 */
+							if ($view_own) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$counter=0;
+								foreach($permissions['view_own'] as $index=>$role_id) {
+									if ($role_id == $rid) {
+										// don't add it
+									} else {
+										$new_permissions['view_own'][$counter] = $role_id;
+										$counter++;
+									}
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['view_own'] = $permissions['view_own'];
+							}
+							/*
+							 * the update access settings
+							 */
+							if ($update) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$counter=0;
+								foreach($permissions['update'] as $index=>$role_id) {
+									if ($role_id == $rid) {
+										// don't add it
+									} else {
+										$new_permissions['update'][$counter] = $role_id;
+										$counter++;
+									}
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['update'] = $permissions['update'];
+							}
+							/*
+							 * the update_own access settings
+							 */
+							if ($update_own) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$counter=0;
+								foreach($permissions['update_own'] as $index=>$role_id) {
+									if ($role_id == $rid) {
+										// don't add it
+									} else {
+										$new_permissions['update_own'][$counter] = $role_id;
+										$counter++;
+									}
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['update_own'] = $permissions['update_own'];
+							}
+							/*
+							 * the delete access settings
+							 */
+							if ($delete) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$counter=0;
+								foreach($permissions['delete'] as $index=>$role_id) {
+									if ($role_id == $rid) {
+										// don't add it
+									} else {
+										$new_permissions['delete'][$counter] = $role_id;
+										$counter++;
+									}
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['delete'] = $permissions['delete'];
+							}
+							/*
+							 * the delete_own access settings
+							 */
+							if ($delete_own) {
+								/*
+								 * rebuild, adding this role if necessary
+								 * sure hope it is not order dependent!!
+								 */
+								$counter=0;
+								foreach($permissions['delete_own'] as $index=>$role_id) {
+									if ($role_id == $rid) {
+										// don't add it
+									} else {
+										$new_permissions['delete_own'][$counter] = $role_id;
+										$counter++;
+									}
+								}
+							} else {
+								/*
+								 * use existing
+								 */
+								$new_permissions['delete_own'] = $permissions['delete_own'];
+							}
+							//drupal_set_message(sprintf('<pre>CA has record %s</pre>', print_r($new_permissions, TRUE)));
+							content_access_save_per_node_settings($node, $new_permissions);
+						} else {
+							/*
+							 * C A has no record for this node
+							 * really should not happen, but create one with admin permissions only (not the defaults)
+							 */
+							//drupal_set_message(sprintf('<pre>CA has no record %s</pre>', print_r($permissions, TRUE)));
+							/*
+							 * rebuild permissions as new_permissions 
+							 */
+							$new_permissions = array();
+							/*
+							 * the view access settings
+							 */
+							if ($view) {
+								/*
+								 * rebuild
+								 */
+								$new_permissions['view'][0] = 3; // admin
+							} else {
+								$new_permissions['view'][0] = 3; // admin
+							}
+							/*
+							 * the view_own access settings
+							 */
+							if ($view_own) {
+								/*
+								 * rebuild
+								 */
+								$new_permissions['view_own'][0] = 3; // admin
+							} else {
+								$new_permissions['view_own'][0] = 3; // admin
+							}
+							/*
+							 * the update access settings
+							 */
+							if ($update) {
+								/*
+								 * rebuild
+								 */
+								$new_permissions['update'][0] = 3; // admin
+							} else {
+								$new_permissions['update'][0] = 3; // admin
+							}
+							/*
+							 * the update_own access settings
+							 */
+							if ($update_own) {
+								/*
+								 * rebuild
+								 */
+								$new_permissions['update_own'][0] = 3; // admin
+							} else {
+								$new_permissions['update_own'][0] = 3; // admin
+							}
+							/*
+							 * the delete access settings
+							 */
+							if ($delete) {
+								/*
+								 * rebuild
+								 */
+								$new_permissions['delete'][0] = 3; // admin
+							} else {
+								$new_permissions['delete'][0] = 3; // admin
+							}
+							/*
+							 * the delete_own access settings
+							 */
+							if ($delete_own) {
+								/*
+								 * rebuild
+								 */
+								$new_permissions['delete_own'][0] = 3; // admin
+							} else {
+								$new_permissions['delete_own'][0] = 3; // admin
+							}
+							//drupal_set_message(sprintf('<pre>CA has record %s</pre>', print_r($new_permissions, TRUE)));
+							content_access_save_per_node_settings($node, $new_permissions);
+						}
+					}
+				} else {
+					/*
+					 * skip this node record if the node is invalid
+					 */
+					drupal_set_message(t('Invalid node (nid='.$nid.') found in WISE ridnid table.'),'Warning');
+				}
+			}
+		} else {
+			/*
+			 * skip this role - should not happen
+			 * role should not be in list if it is not valid
+			 */
+			drupal_set_message(t('Invalid role (rid='.$rid.') found in WISE ridnid table.'),'Warning');
+		}
+	}
+	drupal_set_message(t('Your data has been saved.'));
+}

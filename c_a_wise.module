@@ -1,0 +1,21 @@
+<?php
+
+/**
+ * @file Content Access WISE Extension module file
+ */
+
+/*
+ * implements hook_menu
+ */
+function c_a_wise_menu() {
+  $items['c_a_wise/access'] = array(
+    'title' => 'Control WISE Form Access',
+    'description' => t('select which WISE data input forms can be accessed by users.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('c_a_wise_form'),
+    'access arguments' => array('administer users'),
+    'file' => 'c_a_wise_form.inc',
+    'weight' => 5,
+  );
+  return $items;
+ }
