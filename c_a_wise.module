@@ -80,6 +80,7 @@ function c_a_wise_form($form,&$form_state) {
 	->condition('status',0,">")
 	->orderBy('ndx','ASC');
 	$rid_query_results = $rid_query->execute()->fetchAll();
+	drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_query_results, TRUE)));
 	/*
 	 * create a checkbox list of the controlled role names
 	 */
@@ -111,6 +112,7 @@ function c_a_wise_form($form,&$form_state) {
 			->fields('c_a_wise_ridnid',array('rid','nid'))
 			->condition('rid',$rid,"=");
 			$ridnid_query_results = $ridnid_query->execute()->fetchAll();
+			drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_query_results, TRUE)));
 			foreach($ridnid_query_results as $ridnid_record) {
 				// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record, TRUE)));
 				// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->rid, TRUE)));
