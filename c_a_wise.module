@@ -119,7 +119,7 @@ function c_a_wise_form($form,&$form_state) {
 				
 				if(!$found_default) {
 					$nid = $ridnid_record->nid;
-					drupal_set_message(sprintf('<pre>node id = %s</pre>', print_r($nid, TRUE)));
+					// drupal_set_message(sprintf('<pre>node id = %s</pre>', print_r($nid, TRUE)));
 					$node = node_load($nid);
 					if($node) {
 						$permissions=array();
