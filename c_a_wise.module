@@ -9,18 +9,17 @@ function c_a_wise_block_info() {
 	 * get the c_a_wise module parameters
 	 */
 	$parameter_query = db_select("c_a_wise")
-	->fields('c_a_wise',array('block_title','block_info'))
+	->fields('c_a_wise',array('block_info'))
 	->orderBy('c_a_wise_id','ASC');
 	$parameter_query_results = $parameter_query->execute()->fetchAll();
-	$title='';
 	$info='';
 	foreach($parameter_query_results as $parameter_record) {
-		$title = $parameter_record->block_title;
 		$info = $parameter_record->block_info;
 	}
 	$blocks = array();
 	$blocks['c_a_wise_block'] = array(
-			'title' => t($title),
+			'status' => 1,
+			'region' => 'sidebar_first',
 			'info' => t($info),
 			'cache' => DRUPAL_NO_CACHE,
 	);
