@@ -1,6 +1,6 @@
 name = Content Access WISE Extension
-description = Extends the Content Access module to include an addition form for the WISE project
+description = Extends the Content Access module to include an additional form for the WISE project
 package = Access control
 core = 7.x
 dependencies[] = content_access
-files[] = c_a_wise_form.inc
+files[] = c_a_wise.module
