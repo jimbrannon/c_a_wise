@@ -9,15 +9,18 @@ function c_a_wise_block_info() {
 	 * get the c_a_wise module parameters
 	 */
 	$parameter_query = db_select("c_a_wise")
-	->fields('c_a_wise','block_info')
+	->fields('c_a_wise',array('block_title','block_info'))
 	->orderBy('c_a_wise_id','ASC');
 	$parameter_query_results = $parameter_query->execute()->fetchAll();
+	$title='';
 	$info='';
 	foreach($parameter_query_results as $parameter_record) {
+		$title = $parameter_record->block_title;
 		$info = $parameter_record->block_info;
 	}
 	$blocks = array();
 	$blocks['c_a_wise_block'] = array(
+			'title' => t($title),
 			'info' => t($info),
 			'cache' => DRUPAL_NO_CACHE,
 	);
@@ -29,16 +32,19 @@ function c_a_wise_block_view($delta = '') {
 	 * get the c_a_wise module parameters
 	 */
 	$parameter_query = db_select("c_a_wise")
-	->fields('c_a_wise','block_subject')
+	->fields('c_a_wise',array('block_title','block_subject'))
 	->orderBy('c_a_wise_id','ASC');
 	$parameter_query_results = $parameter_query->execute()->fetchAll();
+	$title='';
 	$subject='';
 	foreach($parameter_query_results as $parameter_record) {
+		$title = $parameter_record->block_title;
 		$subject = $parameter_record->block_subject;
 	}
 	$block = array();
 	switch ($delta) {
 		case 'c_a_wise_block' :
+			$block['title'] = t($title);
 			$block['subject'] = t($subject);
 			$block['content'] = c_a_wise_block_content();
 			break;
@@ -191,9 +197,6 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 	//drupal_set_message(sprintf('<pre>%s</pre>', print_r($form_state['values']['wise_roles_checkboxes'], TRUE)));
 	$selected_roles = array_filter($form_state['values']['wise_roles_checkboxes']);
 	//drupal_set_message(sprintf('<pre>%s</pre>', print_r($selected_roles, TRUE)));
-	/*
-	*
-	*/
 	foreach($form_state['values']['wise_roles_checkboxes'] as $rid=>$rid_selected) {
 		/*
 		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid, TRUE)));
@@ -202,11 +205,12 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 		/*
 		 * get the role object from drupal
 		 */
+		$role = array();
 		$role = user_role_load($rid);
 		/*
 		 * if it is a legitimate role
 		 */
-		if(isset($role)) {
+		if($role) {
 			//drupal_set_message(sprintf('<pre>valid role rid %s</pre>', print_r($rid, TRUE)));
 			/*
 			* find the node records for this role according to the WISE ridnid table
@@ -232,8 +236,9 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 				/*
 				 * see if this is a valid node
 				 */
+				$node = array();
 				$node = node_load($nid);
-				if (isset($node)) {
+				if ($node) {
 					//drupal_set_message(sprintf('<pre>valid node nid %s</pre>', print_r($nid, TRUE)));
 					/*
 					* node is valid, so update the content access record
@@ -747,6 +752,65 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 					 * skip this node record if the node is invalid
 					 */
 					drupal_set_message(t('Invalid node (nid='.$nid.') found in WISE ridnid table.'),'Warning');
+				}
+				/*
+				 * find the block records for this role according to the WISE ridblock table
+				 */
+				$ridblock_query = db_select("c_a_wise_ridblock")
+				->fields('c_a_wise_ridblock',array('module','delta','rid'))
+				->condition('rid',$rid,"=");
+				$ridblock_query_results = $ridblock_query->execute()->fetchAll();
+				/*
+				 * for each block record
+				 */
+				foreach($ridblock_query_results as $ridblock_record) {
+					/*
+					 * get the ridblock record field values
+					 */
+					$module = $ridblock_record->module;
+					$delta = $ridblock_record->delta;
+					/*
+					 * now simply add or remove them from the block_role table
+					 * (really, that's it?! we'll see...) 
+					 */
+					$blockrole_query_results = array();
+					$blockrole_query = db_select("block_role")
+					->fields('block_role',array('module','delta','rid'))
+					->condition('module',$module,"=")
+					->condition('delta',$delta,"=")
+					->condition('rid',$rid,"=");
+					$blockrole_query_results = $blockrole_query->execute()->fetchAll();
+					if($rid_selected>0) {
+						/*
+						 * it needs to be in the block_role table
+						 */
+						if($blockrole_query_results) {
+							// do nothing, it is there already
+						} else {
+							// add it
+							$blunk = db_insert('block_role')
+							->fields(array(
+									'module' => $module,
+									'delta' => $delta,
+									'rid' => $rid,
+							))
+							->execute();
+						}
+					} else {
+						/*
+						 * it needs to NOT be in the block_role table
+						 */
+						if($blockrole_query_results) {
+							// remove it
+							$blunk = db_delete('block_role')
+							->condition('module',$module,"=")
+							->condition('delta',$delta,"=")
+							->condition('rid',$rid,"=")
+							->execute();
+						} else {
+							// do nothing, it is not there
+						}
+					}
 				}
 			}
 		} else {
