@@ -87,14 +87,13 @@ function c_a_wise_form($form,&$form_state) {
 	$role_checkbox_defaults = array();
 	$role_counter = 0;
 	foreach($rid_query_results as $rid_record) {
-		/*
-		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_record, TRUE)));
-		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_record->rid, TRUE)));
-		 */
+		$rid = $rid_record->rid;
+		// drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_record, TRUE)));
+		drupal_set_message(sprintf('<pre>role id = %s</pre>', print_r($rid, TRUE)));
 		/*
 		 * get the role object from drupal
 		 */
-		$role = user_role_load($rid_record->rid);
+		$role = user_role_load($rid);
 		if($role) {
 			$role_counter++;
 			if(strlen($rid_record->name)) {
@@ -110,32 +109,28 @@ function c_a_wise_form($form,&$form_state) {
 			$access_type_for_defaults = 'view';
 			$ridnid_query = db_select("c_a_wise_ridnid")
 			->fields('c_a_wise_ridnid',array('rid','nid'))
-			->condition('rid',$rid_record->rid,"=");
+			->condition('rid',$rid,"=");
 			$ridnid_query_results = $ridnid_query->execute()->fetchAll();
 			foreach($ridnid_query_results as $ridnid_record) {
-				/*
-				 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record, TRUE)));
-				 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->rid, TRUE)));
-				 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->nid, TRUE)));
-				 */
+				// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record, TRUE)));
+				// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->rid, TRUE)));
+				
 				if(!$found_default) {
-					$node=node_load($ridnid_record->nid);
+					$nid = $ridnid_record->nid;
+					drupal_set_message(sprintf('<pre>node id = %s</pre>', print_r($nid, TRUE)));
+					$node = node_load($nid);
 					if($node) {
 						$permissions=array();
 						$permissions = content_access_get_per_node_settings($node);
-						/*
-						 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($permissions, TRUE)));
-						 */
+						// drupal_set_message(sprintf('<pre>%s</pre>', print_r($permissions, TRUE)));
 						if($permissions) {
 							/*
 							 * check the view_any array
 							 */
 							$view_any = $permissions[$access_type_for_defaults];
-							/*
-							 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($view_any, TRUE)));
-							 */
-							if (in_array($rid_record->rid,$view_any)) {
-								$role_checkbox_defaults[] = $rid_record->rid;
+							drupal_set_message(sprintf('<pre>%s</pre>', print_r($view_any, TRUE)));
+							if (in_array($rid,$view_any)) {
+								$role_checkbox_defaults[] = $rid;
 								$found_default = TRUE;
 							}
 						}
@@ -151,7 +146,7 @@ function c_a_wise_form($form,&$form_state) {
 			if(!$found_default) {
 				$ridblock_query = db_select("c_a_wise_ridblock")
 				->fields('c_a_wise_ridblock',array('module','delta','rid'))
-				->condition('rid',$rid_record->rid,"=");
+				->condition('rid',$rid,"=");
 				$ridblock_query_results = array();
 				$ridblock_query_results = $ridblock_query->execute()->fetchAll();
 				if($ridblock_query_results) {
@@ -161,11 +156,11 @@ function c_a_wise_form($form,&$form_state) {
 							->fields('block_role',array('module','delta','rid'))
 							->condition('module',$ridblock_record->module,"=")
 							->condition('delta',$ridblock_record->delta,"=")
-							->condition('rid',$ridblock_record->rid,"=");
+							->condition('rid',$rid,"=");
 							$blockrole_query_results = array();
 							$blockrole_query_results = $blockrole_query->execute()->fetchAll();
 							if($blockrole_query_results) {
-								$role_checkbox_defaults[] = $ridblock_record->rid;
+								$role_checkbox_defaults[] = $rid;
 								$found_default = TRUE;
 							}
 						}
@@ -197,10 +192,8 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 	$selected_roles = array_filter($form_state['values']['wise_roles_checkboxes']);
 	//drupal_set_message(sprintf('<pre>%s</pre>', print_r($selected_roles, TRUE)));
 	foreach($form_state['values']['wise_roles_checkboxes'] as $rid=>$rid_selected) {
-		/*
-		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid, TRUE)));
-		 * drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_selected, TRUE)));
-		 */
+		// drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid, TRUE)));
+		// drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_selected, TRUE)));
 		/*
 		 * get the role object from drupal
 		 */
