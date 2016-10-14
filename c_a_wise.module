@@ -5,19 +5,41 @@
  */
 
 function c_a_wise_block_info() {
+	/*
+	 * get the c_a_wise module parameters
+	 */
+	$parameter_query = db_select("c_a_wise")
+	->fields('c_a_wise','block_info')
+	->orderBy('c_a_wise_id','ASC');
+	$parameter_query_results = $parameter_query->execute()->fetchAll();
+	$info='';
+	foreach($parameter_query_results as $parameter_record) {
+		$info = $parameter_record->block_info;
+	}
 	$blocks = array();
 	$blocks['c_a_wise_block'] = array(
-			'info' => t('c_a_wise form block'),
+			'info' => t($info),
 			'cache' => DRUPAL_NO_CACHE,
 	);
 	return $blocks;
 }
 
 function c_a_wise_block_view($delta = '') {
+	/*
+	 * get the c_a_wise module parameters
+	 */
+	$parameter_query = db_select("c_a_wise")
+	->fields('c_a_wise','block_subject')
+	->orderBy('c_a_wise_id','ASC');
+	$parameter_query_results = $parameter_query->execute()->fetchAll();
+	$subject='';
+	foreach($parameter_query_results as $parameter_record) {
+		$subject = $parameter_record->block_subject;
+	}
 	$block = array();
 	switch ($delta) {
 		case 'c_a_wise_block' :
-			$block['subject'] = t('WISE Content Control');
+			$block['subject'] = t($subject);
 			$block['content'] = c_a_wise_block_content();
 			break;
 	}
@@ -33,6 +55,18 @@ function c_a_wise_block_content() {
  */
 function c_a_wise_form($form,&$form_state) {
 	$form = array();
+	/*
+	 * get the c_a_wise module parameters
+	 */
+	$parameter_query = db_select("c_a_wise")
+	->fields('c_a_wise',array('checkbox_title','checkbox_description'))
+	->orderBy('c_a_wise_id','ASC');
+	$parameter_query_results = $parameter_query->execute()->fetchAll();
+	$checkbox_title='';
+	foreach($parameter_query_results as $parameter_record) {
+		$checkbox_title = $parameter_record->checkbox_title;
+		$checkbox_description = $parameter_record->checkbox_description;
+	}
 	/*
 	 * get the list of controlled roles (by rid) to control from the rid table
 	 */
@@ -106,16 +140,39 @@ function c_a_wise_form($form,&$form_state) {
 			/*
 			 * set the defaults based on the block settings
 			 *   i.e. see if there is a record for this rid in the block_role table
+			 *   assumes that if role is controlled and one case is found,
+			 *   then intent is for all cases to be managed identically
 			 */
 			if(!$found_default) {
-
+				$ridblock_query = db_select("c_a_wise_ridblock")
+				->fields('c_a_wise_ridblock',array('module','delta','rid'))
+				->condition('rid',$rid_record->rid,"=");
+				$ridblock_query_results = array();
+				$ridblock_query_results = $ridblock_query->execute()->fetchAll();
+				if($ridblock_query_results) {
+					foreach($ridblock_query_results as $ridblock_record) {
+						if(!$found_default) {
+							$blockrole_query = db_select("block_role")
+							->fields('block_role',array('module','delta','rid'))
+							->condition('module',$ridblock_record->module,"=")
+							->condition('delta',$ridblock_record->delta,"=")
+							->condition('rid',$ridblock_record->rid,"=");
+							$blockrole_query_results = array();
+							$blockrole_query_results = $blockrole_query->execute()->fetchAll();
+							if($blockrole_query_results) {
+								$role_checkbox_defaults[] = $ridblock_record->rid;
+								$found_default = TRUE;
+							}
+						}
+					}
+				}
 			}
 		}
 	}
 	$form['wise_roles_checkboxes'] = array(
 			'#type' => 'checkboxes',
-			'#title' => t('WISE Roles'),
-			'#description' => t('Enable or disable data input for these WISE user roles.'),
+			'#title' => t($checkbox_title),
+			'#description' => t($checkbox_description),
 			'#options' => $role_checkbox_options,
 			'#default_value' => $role_checkbox_defaults,
 	);
