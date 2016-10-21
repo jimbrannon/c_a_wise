@@ -210,8 +210,107 @@ function c_a_wise_form($form,&$form_state) {
 			'#type' => 'submit',
 			'#value' => t($submit_label),
 	);
+	$form['#after_build'][] = 'c_a_wise_form_force_triggering_element';
 	return $form;
 }
+//this function is called before drupal processes the form submit hook
+function c_a_wise_form_force_triggering_element($form, &$form_state) {
+	/*
+	 * the triggering element variable gets set based on which button was pressed
+	 * the idea is that it is set (has a value) right after the button is pressed,
+	 *   but NOT later (in the drupal form processing) when this function seems to get called again
+	 *   so checking with isset() is a way to add some code to fire RIGHT AFTER an all or nothing button is pressed
+	 *   but we want this function to do nothing on other calls
+	 *   the code we want to add should save in a drupal variable which button was pressed
+	 *     and clear out all the other button press saves so only one is ever set at a time
+	 *     then when the form is drawn it can look for this variable and set the default values accordingly
+	 *     also, we will have to save any changes the user has made to other form elements
+	 *     and restore them when the form is redrawn.
+	 *     this means essentially that EVERY form element will need to have it's state saved
+	 *     so it can be restored when the form is redrawn.  the one form element associated with the all or none
+	 *     button pressed will not save it's current state, but will save either a all or none state
+	 *     that way, the form redrawing code does not have to be very smart
+	 */
+	if(isset($form_state['triggering_element'])) {
+		$triggering_element_name = $form_state['triggering_element']['#name'];
+		debug($triggering_element_name,microtime(true).' c_a_wise_form_force_triggering_element: a triggering_element is set; the name is:');
+		switch ($triggering_element_name) {
+			case 'submit_toggle_partner_on':
+				break;
+			case 'submit_toggle_partner_off':
+				break;
+			case 'submit':
+			default:
+				
+		}
+		if ($triggering_element_name_components[0]=="fetchit7") {
+			//save the existing state of ALL the form elements
+			$param_count = $form['param_count']['#value'];
+			for ($param_ndx = 0; $param_ndx < $param_count; $param_ndx++) {
+				$element_name = $triggering_element_name_components[0].'_'.$triggering_element_name_components[1].'_'.$triggering_element_name_components[2].'_'.$triggering_element_name_components[3].'_'.$param_ndx;
+				//debug($element_name,microtime(true).' fetchit7_param_form_element: element name:');
+				variable_set($element_name.'_set',true);
+				//have to trap the date control case, because it maps from a scalar in pg to an array in drupal, and the value handling is unique
+
+				$control_type = $form['elements'][$element_name]['#type'];
+				switch ($control_type) {
+					case 'date':
+						// the weird drupal core date element - an array of three values
+						$val_str = $form_state['values']['elements'][$element_name]['year'];
+						$val_str .= "-";
+						$val_str .= $form_state['values']['elements'][$element_name]['month'];
+						$val_str .= "-";
+						$val_str .= $form_state['values']['elements'][$element_name]['day'];
+						$val=$val_str;
+						break;
+					default:
+						$val = $form_state['values']['elements'][$element_name];
+						break;
+				}
+				variable_set($element_name.'_value',$val);
+				//debug($form_state['values']['elements'][$element_name],microtime(true).' fetchit7_param_form_element: element value:');
+				// set them all to false, then set the triggering to true afterwards
+				// notice that $element_name (the value/list control) is the base of $triggering_element_name (the all or none button)
+				variable_set($element_name.'_allbtn',false);
+				variable_set($element_name.'_nonebtn',false);
+			}
+			// create an internal drupal variable with the same name as the element, give it a boolean value of true
+			// this is used to let the subsequent (re)render of the form know that it is redrawing
+			//   after an all or none button press, because things happen differently in those cases
+			variable_set($triggering_element_name,true);
+				
+			// what is this for?
+			$form_state['triggering_element'] = $form['elements'][$form_state['triggering_element']['#name']];
+		}
+	} else {
+		//debug('',microtime(true).' fetchit7_param_form_force_triggering_element: a triggering_element is NOT set');
+	}
+	/*
+	 if (isset($form_state['input']['all'])) {
+		$string=$form_state['input']['all'];
+		$form_state['triggering_element'] = $form['all'];
+		debug($string,'Hello from the fetchit7_param_form_force_triggering_element function. From here it appears all was pressed:');
+		} elseif (isset($form_state['input']['none'])) {
+		$string=$form_state['input']['none'];
+		$form_state['triggering_element'] = $form['none'];
+		debug($string,'Hello from the fetchit7_param_form_force_triggering_element function. From here it appears none was pressed:');
+		} elseif (isset($form_state['input']['actions']['submit'])) {
+		$string=$form_state['input']['actions']['submit'];
+		$form_state['triggering_element'] = $form['actions']['submit'];
+		debug($string,'Hello from the fetchit7_param_form_force_triggering_element function. From here it appears submit was pressed:');
+		} else {
+		if (isset($form_state['triggering_element'])) {
+		$string=$form_state['triggering_element'];
+		debug($string,'Hello from the fetchit7_param_form_force_triggering_element function. From here it appears nothing was pressed (yet?) but triggering element is:');
+		} else {
+		$string=null;
+		debug($string,'Hello from the fetchit7_param_form_force_triggering_element function. From here it appears nothing was pressed (yet?) but triggering element is:');
+		}
+		}
+		*/
+	return $form;
+}
+
 function theme_c_a_wise_form($variables) {
 	$form = $variables['form'];
 	$output = '';
