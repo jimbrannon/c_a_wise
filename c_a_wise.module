@@ -180,7 +180,7 @@ function c_a_wise_form($form,&$form_state) {
 	);
 	
 	// create the render arrays for the toggle on off buttons
-	$form['elements']['submit_toggle_partner_on'] = array(
+	$form['submit_toggle_partner_on'] = array(
 			'#type' => 'submit',
 			'#name' => 'submit_toggle_partner_on',
 			//'#validate' => array(
@@ -193,7 +193,7 @@ function c_a_wise_form($form,&$form_state) {
 			'#buttontype' => 'button',
 			'#value' => t($submit_label_toggle_on),
 	);
-	$form['elements']['submit_toggle_partner_off'] = array(
+	$form['submit_toggle_partner_off'] = array(
 			'#type' => 'submit',
 			'#name' => 'submit_toggle_partner_off',
 			//'#validate' => array(
@@ -212,13 +212,30 @@ function c_a_wise_form($form,&$form_state) {
 	);
 	return $form;
 }
+function theme_c_a_wise_form($variables) {
+	$form = $variables['form'];
+	$output = '';
+    $output .= '<div class= c_a_wise_submit_toggle_partner_on">';
+    $output .= drupal_render($form['submit_toggle_partner_on']);
+    $output .= '</div>';
+    $output .= '<div class= c_a_wise_submit_toggle_partner_off">';
+    $output .= drupal_render($form['submit_toggle_partner_off']);
+    $output .= '</div>';
+    $output .= '<div class= c_a_wise_role_checkboxes">';
+    $output .= drupal_render($form['wise_roles_checkboxes']);
+    $output .= '</div>';
+    $output .= '<div class= c_a_wise_submit">';
+    $output .= drupal_render($form['submit']);
+    $output .= '</div>';
+    
+    return $output;
+}
+
 function c_a_wise_form_validate(&$form, &$form_state) {
 }
 function c_a_wise_form_toggle_on_submit(&$form, &$form_state) {
-	
 }
 function c_a_wise_form_toggle_off_submit(&$form, &$form_state) {
-	
 }
 function c_a_wise_form_submit(&$form, &$form_state) {
 	/*
