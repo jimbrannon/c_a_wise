@@ -76,7 +76,7 @@ function c_a_wise_form($form,&$form_state) {
 	 * get the list of controlled roles (by rid) to control from the rid table
 	 */
 	$rid_query = db_select("c_a_wise_rid")
-	->fields('c_a_wise_rid',array('rid','name'))
+	->fields('c_a_wise_rid',array('rid','name','status'))
 	->condition('status',0,">")
 	->orderBy('ndx','ASC');
 	$rid_query_results = $rid_query->execute()->fetchAll();
@@ -94,76 +94,142 @@ function c_a_wise_form($form,&$form_state) {
 		/*
 		 * get the role object from drupal
 		 */
-		$role = user_role_load($rid);
-		if($role) {
-			$role_counter++;
-			if(strlen($rid_record->name)) {
-				$role_checkbox_options[$rid_record->rid] = $rid_record->name;
-			} else {
-				$role_checkbox_options[$rid_record->rid] = $role->name;
-			}
-			/*
-			 * set the defaults based on the view_any permission field setting
-			 * this is hardwired to 'view' for now
-			 */
-			$found_default = FALSE;
-			$access_type_for_defaults = 'view';
-			$ridnid_query = db_select("c_a_wise_ridnid")
-			->fields('c_a_wise_ridnid',array('rid','nid'))
-			->condition('rid',$rid,"=");
-			$ridnid_query_results = $ridnid_query->execute()->fetchAll();
-			// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_query_results, TRUE)));
-			foreach($ridnid_query_results as $ridnid_record) {
-				// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record, TRUE)));
-				// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->rid, TRUE)));
-				
-				if(!$found_default) {
-					$nid = $ridnid_record->nid;
-					// drupal_set_message(sprintf('<pre>node id = %s</pre>', print_r($nid, TRUE)));
-					$node = node_load($nid);
-					if($node) {
-						$permissions=array();
-						$permissions = content_access_get_per_node_settings($node);
-						// drupal_set_message(sprintf('<pre>%s</pre>', print_r($permissions, TRUE)));
-						if($permissions) {
-							/*
-							 * check the view_any array
-							 */
-							$view_any = $permissions[$access_type_for_defaults];
-							// drupal_set_message(sprintf('<pre>%s</pre>', print_r($view_any, TRUE)));
-							if (in_array($rid,$view_any)) {
+		if($rid_record->status) { // it is a value greater than 0 so put it in the list of roles to select from, 1 means non partner, 2 means partner
+			$role = user_role_load($rid);
+			if($role) { // i.e. if this is a valid role (hopefully always), then ...
+				$role_counter++;
+				/*
+				 * use the role name entered by the user, if none, use drupal's internal role name
+				 */
+				if(strlen($rid_record->name)) {
+					$role_checkbox_options[$rid_record->rid] = $rid_record->name;
+				} else {
+					$role_checkbox_options[$rid_record->rid] = $role->name;
+				}
+				/*
+				 * now set the default for this role
+				 * 
+				 * first check if the partner all or partner none button was pressed immediately
+				 *   prior to getting here
+				 * if so, then a flag will be set
+				 *   and then set this role default based on which button was pressed:
+				 *   on - all partner roles will be turned on and others will be set to the state
+				 *     at the time the button was pressed (thank you triggering element trick)
+				 *   off - all partner roles will be turned off and others will be set to the state
+				 *     at the time the button was pressed (thank you triggering element trick)
+				 *   anything else - find the default as set in the database
+				 */
+				if (variable_get('submit_toggle_partner_on',FALSE)) {
+					/*
+					 * all/none button pressed,
+					 * so see if this role is a partner role
+					 */
+					switch ($rid_record->status) {
+						case 1: // it is a non partner role, set default to the state it was in
+							// check if this role was on in the previous checkbox list state
+							// add it to the defaults if so
+							$checkbox_list_state = variable_get('wise_roles_checkboxes_value',array());
+							if(in_array($rid,$checkbox_list_state)) {
 								$role_checkbox_defaults[] = $rid;
-								$found_default = TRUE;
+							}
+							break;
+						case 2: // it is a partner role, turn it on, add it to defaults
+							$role_checkbox_defaults[] = $rid;
+							break;
+						default:
+							// do nothing - should not get here
+					}
+				} elseif (variable_get('submit_toggle_partner_off',FALSE)) {
+					/*
+					 * all/none button pressed,
+					 * so see if this role is a partner role
+					 */
+					switch ($rid_record->status) {
+						case 1: // it is a non partner role, set default to the state it was in
+							// check if this role was on in the previous checkbox list state
+							// add it to the defaults if so
+							$checkbox_list_state = variable_get('wise_roles_checkboxes_value',array());
+							if(in_array($rid,$checkbox_list_state)) {
+								$role_checkbox_defaults[] = $rid;
+							}
+							break;
+						case 2: // it is a partner role, turn it off, i.e. don't add it to defaults
+							break;
+						default:
+							// do nothing - should not get here
+					}
+				} else {
+					/*
+					 * first try to set the default value based on the view_any permission
+					 * of any nodes associated with this role
+					 * this is hardwired to the view_any permission field ("view") setting
+					 * in the c_a_wise_ridnid database table
+					 * if any are set to true, then assume the role checkbox should be "on"
+					 */
+					$found_default = FALSE;
+					$access_type_for_defaults = 'view';
+					$ridnid_query = db_select("c_a_wise_ridnid")
+					->fields('c_a_wise_ridnid',array('rid','nid'))
+					->condition('rid',$rid,"=");
+					$ridnid_query_results = $ridnid_query->execute()->fetchAll();
+					// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_query_results, TRUE)));
+					foreach($ridnid_query_results as $ridnid_record) {
+						// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record, TRUE)));
+						// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->rid, TRUE)));
+					
+						if(!$found_default) {
+							$nid = $ridnid_record->nid;
+							// drupal_set_message(sprintf('<pre>node id = %s</pre>', print_r($nid, TRUE)));
+							$node = node_load($nid);
+							if($node) {
+								$permissions=array();
+								$permissions = content_access_get_per_node_settings($node);
+								// drupal_set_message(sprintf('<pre>%s</pre>', print_r($permissions, TRUE)));
+								if($permissions) {
+									/*
+									 * check the view_any array
+									 */
+									$view_any = $permissions[$access_type_for_defaults];
+									// drupal_set_message(sprintf('<pre>%s</pre>', print_r($view_any, TRUE)));
+									if (in_array($rid,$view_any)) {
+										$role_checkbox_defaults[] = $rid;
+										$found_default = TRUE;
+									}
+								}
 							}
 						}
 					}
-				}
-			}
-			/*
-			 * set the defaults based on the block settings
-			 *   i.e. see if there is a record for this rid in the block_role table
-			 *   assumes that if role is controlled and one case is found,
-			 *   then intent is for all cases to be managed identically
-			 */
-			if(!$found_default) {
-				$ridblock_query = db_select("c_a_wise_ridblock")
-				->fields('c_a_wise_ridblock',array('module','delta','rid'))
-				->condition('rid',$rid,"=");
-				$ridblock_query_results = array();
-				$ridblock_query_results = $ridblock_query->execute()->fetchAll();
-				if($ridblock_query_results) {
-					foreach($ridblock_query_results as $ridblock_record) {
-						if(!$found_default) {
-							$blockrole_query = db_select("block_role")
-							->fields('block_role',array('module','delta','rid'))
-							->condition('module',$ridblock_record->module,"=")
-							->condition('delta',$ridblock_record->delta,"=")
-							->condition('rid',$rid,"=");
-							$blockrole_query_results = array();
-							$blockrole_query_results = $blockrole_query->execute()->fetchAll();
-							if($blockrole_query_results) {
-								$role_checkbox_defaults[] = $rid;
-								$found_default = TRUE;
+					/*
+					 * if we did not find any nodes with the view permission set to true
+					 * we are not done
+					 * there might be some blocks associated with this role
+					 * so check whether they are set to be visible
+					 * set the defaults based on the block settings
+					 *   i.e. see if there is a record for this rid in the block_role table
+					 *   assumes that if role is controlled and one case is found,
+					 *   then intent is for all cases to be managed identically
+					 */
+					if(!$found_default) {
+						$ridblock_query = db_select("c_a_wise_ridblock")
+						->fields('c_a_wise_ridblock',array('module','delta','rid'))
+						->condition('rid',$rid,"=");
+						$ridblock_query_results = array();
+						$ridblock_query_results = $ridblock_query->execute()->fetchAll();
+						if($ridblock_query_results) {
+							foreach($ridblock_query_results as $ridblock_record) {
+								if(!$found_default) {
+									$blockrole_query = db_select("block_role")
+									->fields('block_role',array('module','delta','rid'))
+									->condition('module',$ridblock_record->module,"=")
+									->condition('delta',$ridblock_record->delta,"=")
+									->condition('rid',$rid,"=");
+									$blockrole_query_results = array();
+									$blockrole_query_results = $blockrole_query->execute()->fetchAll();
+									if($blockrole_query_results) {
+										$role_checkbox_defaults[] = $rid;
+										$found_default = TRUE;
+									}
+								}
 							}
 						}
 					}
@@ -171,6 +237,17 @@ function c_a_wise_form($form,&$form_state) {
 			}
 		}
 	}
+	/*
+	 * clear the special button flags
+	 */
+	variable_set('submit_toggle_partner_on',FALSE);
+	variable_set('submit_toggle_partner_off',FALSE);
+	variable_set('submit',FALSE);
+	/*
+	 * create the role checkbox list render array,
+	 * hopefully with the defaults now set correctly based on what happened
+	 *   immediately prior to this routine getting called
+	 */
 	$form['wise_roles_checkboxes'] = array(
 			'#type' => 'checkboxes',
 			'#title' => t($checkbox_title),
@@ -227,9 +304,7 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 	 *     also, we will have to save any changes the user has made to other form elements
 	 *     and restore them when the form is redrawn.
 	 *     this means essentially that EVERY form element will need to have it's state saved
-	 *     so it can be restored when the form is redrawn.  the one form element associated with the all or none
-	 *     button pressed will not save it's current state, but will save either a all or none state
-	 *     that way, the form redrawing code does not have to be very smart
+	 *     so it can be restored when the form is redrawn.
 	 */
 	if(isset($form_state['triggering_element'])) {
 		$triggering_element_name = $form_state['triggering_element']['#name'];
@@ -243,7 +318,7 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 				variable_set('submit_toggle_partner_off',false);
 				variable_set('submit',false);
 				// what is this for?
-				$form_state['triggering_element'] = $form['elements'][$form_state['triggering_element']['#name']];
+				//$form_state['triggering_element'] = $form['submit_toggle_partner_on'];
 				break;
 			case 'submit_toggle_partner_off':
 				// save the state of the checkboxes
@@ -253,7 +328,7 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 				variable_set('submit_toggle_partner_off',true);
 				variable_set('submit',false);
 				// what is this for?
-				$form_state['triggering_element'] = $form['elements'][$form_state['triggering_element']['#name']];
+				//$form_state['triggering_element'] = $form['submit_toggle_partner_off'];
 				break;
 			case 'submit':
 				// save the state of the checkboxes
@@ -263,9 +338,17 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 				variable_set('submit_toggle_partner_off',false);
 				variable_set('submit',true);
 				// what is this for?
-				$form_state['triggering_element'] = $form['elements'][$form_state['triggering_element']['#name']];
+				//$form_state['triggering_element'] = $form['submit'];
 				break;
 			default:
+				// save the state of the checkboxes
+				variable_set('wise_roles_checkboxes_value',$form_state['values']['wise_roles_checkboxes']);
+				// save flags to establish which button was pushed
+				variable_set('submit_toggle_partner_on',false);
+				variable_set('submit_toggle_partner_off',false);
+				variable_set('submit',false);
+				// what is this for?
+				//$form_state['triggering_element'] = $form['submit'];
 		}
 	return $form;
 }
