@@ -64,13 +64,16 @@ function c_a_wise_form($form,&$form_state) {
 	 * get the c_a_wise module parameters
 	 */
 	$parameter_query = db_select("c_a_wise")
-	->fields('c_a_wise',array('checkbox_title','checkbox_description'))
+	->fields('c_a_wise',array('checkbox_title','checkbox_description','partners_on_label','partners_off_label','submit_label'))
 	->orderBy('c_a_wise_id','ASC');
 	$parameter_query_results = $parameter_query->execute()->fetchAll();
 	$checkbox_title='';
 	foreach($parameter_query_results as $parameter_record) {
 		$checkbox_title = $parameter_record->checkbox_title;
 		$checkbox_description = $parameter_record->checkbox_description;
+		$submit_label_toggle_on = $parameter_record->partners_on_label;
+		$submit_label_toggle_off = $parameter_record->partners_off_label;
+		$submit_label = $parameter_record->submit_label;
 	}
 	/*
 	 * get the list of controlled roles (by rid) to control from the rid table
@@ -350,8 +353,10 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 				// what is this for?
 				//$form_state['triggering_element'] = $form['submit'];
 		}
+	}
 	return $form;
 }
+
 
 function theme_c_a_wise_form($variables) {
 	$form = $variables['form'];
