@@ -373,11 +373,19 @@ function theme_c_a_wise_form($variables) {
     $output .= '<div class= c_a_wise_submit">';
     $output .= drupal_render($form['submit']);
     $output .= '</div>';
+
+    $output .= '<div class="' . $form_id . '_submit_top">';
+    $output .= drupal_render($form['submit_top']);
+    $output .= '</div>';
     
     return $output;
 }
 
 function c_a_wise_form_validate(&$form, &$form_state) {
+}
+function c_a_wise_form_toggle_on_validate(&$form, &$form_state) {
+}
+function c_a_wise_form_toggle_off_validate(&$form, &$form_state) {
 }
 function c_a_wise_form_toggle_on_submit(&$form, &$form_state) {
 }
