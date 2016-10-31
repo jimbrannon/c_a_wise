@@ -263,12 +263,12 @@ function c_a_wise_form($form,&$form_state) {
 	$form['submit_toggle_partner_on'] = array(
 			'#type' => 'submit',
 			'#name' => 'submit_toggle_partner_on',
-			//'#validate' => array(
-			//		'fetchit7_param_all_validate'
-			//),
+			'#validate' => array(
+					'c_a_wise_form_toggle_on_validate',
+			),
 			'#limit_validation_errors' => array(),
 			'#submit' => array(
-					'c_a_wise_form_toggle_on_submit'
+					'c_a_wise_form_toggle_on_submit',
 			),
 			'#buttontype' => 'button',
 			'#value' => t($submit_label_toggle_on),
@@ -276,9 +276,9 @@ function c_a_wise_form($form,&$form_state) {
 	$form['submit_toggle_partner_off'] = array(
 			'#type' => 'submit',
 			'#name' => 'submit_toggle_partner_off',
-			//'#validate' => array(
-			//		'fetchit7_param_all_validate'
-			//),
+			'#validate' => array(
+					'c_a_wise_form_toggle_off_validate'
+			),
 			'#limit_validation_errors' => array(),
 			'#submit' => array(
 					'c_a_wise_form_toggle_off_submit'
@@ -373,11 +373,6 @@ function theme_c_a_wise_form($variables) {
     $output .= '<div class= c_a_wise_submit">';
     $output .= drupal_render($form['submit']);
     $output .= '</div>';
-
-    $output .= '<div class="' . $form_id . '_submit_top">';
-    $output .= drupal_render($form['submit_top']);
-    $output .= '</div>';
-    
     return $output;
 }
 
