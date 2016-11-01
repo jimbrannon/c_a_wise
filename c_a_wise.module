@@ -31,20 +31,20 @@ function c_a_wise_block_view($delta = '') {
 	 * get the c_a_wise module parameters
 	 */
 	$parameter_query = db_select("c_a_wise")
-	->fields('c_a_wise',array('block_title','block_subject'))
+	->fields('c_a_wise',array('block_title',))
 	->orderBy('c_a_wise_id','ASC');
 	$parameter_query_results = $parameter_query->execute()->fetchAll();
 	$title='';
 	$subject='';
 	foreach($parameter_query_results as $parameter_record) {
 		$title = $parameter_record->block_title;
-		$subject = $parameter_record->block_subject;
+		//$subject = $parameter_record->block_subject;
 	}
 	$block = array();
 	switch ($delta) {
 		case 'c_a_wise_block' :
 			$block['title'] = t($title);
-			$block['subject'] = t($subject);
+			//$block['subject'] = t($subject);
 			$block['content'] = c_a_wise_block_content();
 			break;
 	}
