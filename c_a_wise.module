@@ -64,16 +64,29 @@ function c_a_wise_form($form,&$form_state) {
 	 * get the c_a_wise module parameters
 	 */
 	$parameter_query = db_select("c_a_wise")
-	->fields('c_a_wise',array('checkbox_title','checkbox_description','partners_on_label','partners_off_label','submit_label'))
+	->fields('c_a_wise',
+			array('checkbox_title',
+				'checkbox_description',
+				'checkbox_weight',
+				'partners_on_label',
+				'partners_on_weight',
+				'partners_off_label',
+				'partners_off_weight',
+				'submit_label',
+				'submit_weight',))
 	->orderBy('c_a_wise_id','ASC');
 	$parameter_query_results = $parameter_query->execute()->fetchAll();
 	$checkbox_title='';
 	foreach($parameter_query_results as $parameter_record) {
 		$checkbox_title = $parameter_record->checkbox_title;
 		$checkbox_description = $parameter_record->checkbox_description;
+		$checkbox_weight = $parameter_record->checkbox_weight;
 		$submit_label_toggle_on = $parameter_record->partners_on_label;
+		$partners_on_weight = $parameter_record->partners_on_weight;
 		$submit_label_toggle_off = $parameter_record->partners_off_label;
+		$partners_off_weight = $parameter_record->partners_off_weight;
 		$submit_label = $parameter_record->submit_label;
+		$submit_weight = $parameter_record->submit_weight;
 	}
 	/*
 	 * get the list of controlled roles (by rid) to control from the rid table
@@ -92,8 +105,9 @@ function c_a_wise_form($form,&$form_state) {
 	$role_counter = 0;
 	foreach($rid_query_results as $rid_record) {
 		$rid = $rid_record->rid;
-		// drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid_record, TRUE)));
-		// drupal_set_message(sprintf('<pre>role id = %s</pre>', print_r($rid, TRUE)));
+		//drupal_set_message(t('role id = @var', array('@var' => $rid_record->rid)));
+		//drupal_set_message(t('role name = @var', array('@var' => $rid_record->name)));
+		
 		/*
 		 * get the role object from drupal
 		 */
@@ -109,6 +123,7 @@ function c_a_wise_form($form,&$form_state) {
 				} else {
 					$role_checkbox_options[$rid_record->rid] = $role->name;
 				}
+				//drupal_set_message(t('role label = @var', array('@var' => $role_checkbox_options[$rid_record->rid])));
 				/*
 				 * now set the default for this role
 				 * 
@@ -127,6 +142,7 @@ function c_a_wise_form($form,&$form_state) {
 					 * all/none button pressed,
 					 * so see if this role is a partner role
 					 */
+					//drupal_set_message(t('submit_toggle_partner_on'));
 					switch ($rid_record->status) {
 						case 1: // it is a non partner role, set default to the state it was in
 							// check if this role was on in the previous checkbox list state
@@ -147,6 +163,7 @@ function c_a_wise_form($form,&$form_state) {
 					 * all/none button pressed,
 					 * so see if this role is a partner role
 					 */
+					//drupal_set_message(t('submit_toggle_partner_off'));
 					switch ($rid_record->status) {
 						case 1: // it is a non partner role, set default to the state it was in
 							// check if this role was on in the previous checkbox list state
@@ -169,16 +186,17 @@ function c_a_wise_form($form,&$form_state) {
 					 * in the c_a_wise_ridnid database table
 					 * if any are set to true, then assume the role checkbox should be "on"
 					 */
+					//drupal_set_message(t('neither toggle button pressed'));
 					$found_default = FALSE;
 					$access_type_for_defaults = 'view';
 					$ridnid_query = db_select("c_a_wise_ridnid")
 					->fields('c_a_wise_ridnid',array('rid','nid'))
 					->condition('rid',$rid,"=");
 					$ridnid_query_results = $ridnid_query->execute()->fetchAll();
-					// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_query_results, TRUE)));
+					//drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_query_results, TRUE)));
 					foreach($ridnid_query_results as $ridnid_record) {
-						// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record, TRUE)));
-						// drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->rid, TRUE)));
+						 //drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record, TRUE)));
+						 //drupal_set_message(sprintf('<pre>%s</pre>', print_r($ridnid_record->rid, TRUE)));
 					
 						if(!$found_default) {
 							$nid = $ridnid_record->nid;
@@ -257,38 +275,46 @@ function c_a_wise_form($form,&$form_state) {
 			'#description' => t($checkbox_description),
 			'#options' => $role_checkbox_options,
 			'#default_value' => $role_checkbox_defaults,
+			'#weight' => $checkbox_weight,
 	);
 	
 	// create the render arrays for the toggle on off buttons
 	$form['submit_toggle_partner_on'] = array(
 			'#type' => 'submit',
 			'#name' => 'submit_toggle_partner_on',
-			'#validate' => array(
-					'c_a_wise_form_toggle_on_validate',
-			),
-			'#limit_validation_errors' => array(),
-			'#submit' => array(
-					'c_a_wise_form_toggle_on_submit',
-			),
+			//'#validate' => array(
+			//		'c_a_wise_form_toggle_on_validate',
+			//),
+			//'#limit_validation_errors' => array(),
+			//'#submit' => array(
+			//		'c_a_wise_form_toggle_on_submit',
+			//),
 			'#buttontype' => 'button',
 			'#value' => t($submit_label_toggle_on),
+			'#weight' => $partners_on_weight,
 	);
 	$form['submit_toggle_partner_off'] = array(
 			'#type' => 'submit',
 			'#name' => 'submit_toggle_partner_off',
-			'#validate' => array(
-					'c_a_wise_form_toggle_off_validate'
-			),
-			'#limit_validation_errors' => array(),
-			'#submit' => array(
-					'c_a_wise_form_toggle_off_submit'
-			),
+			//'#validate' => array(
+			//		'c_a_wise_form_toggle_off_validate'
+			//),
+			//'#limit_validation_errors' => array(),
+			//'#submit' => array(
+			//		'c_a_wise_form_toggle_off_submit'
+			//),
 			'#buttontype' => 'button',
 			'#value' => t($submit_label_toggle_off),
+			'#weight' => $partners_off_weight,
 	);
-	$form['submit'] = array(
+	$form['submit_button'] = array(
 			'#type' => 'submit',
+			'#name' => 'submit_button',
 			'#value' => t($submit_label),
+			'#weight' => $submit_weight,
+			//'#submit' => array(
+			//		'c_a_wise_form_submit'
+			//),
 	);
 	$form['#after_build'][] = 'c_a_wise_form_force_triggering_element';
 	return $form;
@@ -309,11 +335,15 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 	 *     this means essentially that EVERY form element will need to have it's state saved
 	 *     so it can be restored when the form is redrawn.
 	 */
+	//drupal_set_message(t('triggering routine form_state'));
+	//debug($form_state,microtime(true));
 	if(isset($form_state['triggering_element'])) {
+	    //drupal_set_message(t('triggering element set'));
 		$triggering_element_name = $form_state['triggering_element']['#name'];
-		debug($triggering_element_name,microtime(true).' c_a_wise_form_force_triggering_element: a triggering_element is set; the name is:');
+		//debug($form_state['triggering_element'],microtime(true).' c_a_wise_form_force_triggering_element: a triggering_element is set; the name is:');
 		switch ($triggering_element_name) {
 			case 'submit_toggle_partner_on':
+	    		//drupal_set_message(t('submit_toggle_partner_on'));
 				// save the state of the checkboxes
 				variable_set('wise_roles_checkboxes_value',$form_state['values']['wise_roles_checkboxes']);
 				// save flags to establish which button was pushed
@@ -321,9 +351,10 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 				variable_set('submit_toggle_partner_off',false);
 				variable_set('submit',false);
 				// what is this for?
-				//$form_state['triggering_element'] = $form['submit_toggle_partner_on'];
+				$form_state['triggering_element'] = $form['submit_toggle_partner_on'];
 				break;
 			case 'submit_toggle_partner_off':
+	    		//drupal_set_message(t('submit_toggle_partner_off'));
 				// save the state of the checkboxes
 				variable_set('wise_roles_checkboxes_value',$form_state['values']['wise_roles_checkboxes']);
 				// save flags to establish which button was pushed
@@ -331,9 +362,10 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 				variable_set('submit_toggle_partner_off',true);
 				variable_set('submit',false);
 				// what is this for?
-				//$form_state['triggering_element'] = $form['submit_toggle_partner_off'];
+				$form_state['triggering_element'] = $form['submit_toggle_partner_off'];
 				break;
-			case 'submit':
+			case 'submit_button':
+	    		//drupal_set_message(t('submit_button'));
 				// save the state of the checkboxes
 				variable_set('wise_roles_checkboxes_value',$form_state['values']['wise_roles_checkboxes']);
 				// save flags to establish which button was pushed
@@ -341,9 +373,10 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 				variable_set('submit_toggle_partner_off',false);
 				variable_set('submit',true);
 				// what is this for?
-				//$form_state['triggering_element'] = $form['submit'];
+				$form_state['triggering_element'] = $form['submit_button'];
 				break;
 			default:
+	    		//drupal_set_message(t('default'));
 				// save the state of the checkboxes
 				variable_set('wise_roles_checkboxes_value',$form_state['values']['wise_roles_checkboxes']);
 				// save flags to establish which button was pushed
@@ -351,13 +384,13 @@ function c_a_wise_form_force_triggering_element($form, &$form_state) {
 				variable_set('submit_toggle_partner_off',false);
 				variable_set('submit',false);
 				// what is this for?
-				//$form_state['triggering_element'] = $form['submit'];
+				$form_state['triggering_element'] = $form['submit_button'];
 		}
 	}
 	return $form;
 }
 
-
+/*
 function theme_c_a_wise_form($variables) {
 	$form = $variables['form'];
 	$output = '';
@@ -371,27 +404,30 @@ function theme_c_a_wise_form($variables) {
     $output .= drupal_render($form['wise_roles_checkboxes']);
     $output .= '</div>';
     $output .= '<div class= c_a_wise_submit">';
-    $output .= drupal_render($form['submit']);
+    $output .= drupal_render($form['submit_button']);
     $output .= '</div>';
     return $output;
 }
+*/
 
 function c_a_wise_form_validate(&$form, &$form_state) {
 }
-function c_a_wise_form_toggle_on_validate(&$form, &$form_state) {
-}
-function c_a_wise_form_toggle_off_validate(&$form, &$form_state) {
-}
-function c_a_wise_form_toggle_on_submit(&$form, &$form_state) {
-}
-function c_a_wise_form_toggle_off_submit(&$form, &$form_state) {
-}
+//function c_a_wise_form_toggle_on_validate(&$form, &$form_state) {
+//}
+//function c_a_wise_form_toggle_off_validate(&$form, &$form_state) {
+//}
+//function c_a_wise_form_toggle_on_submit(&$form, &$form_state) {
+//}
+//function c_a_wise_form_toggle_off_submit(&$form, &$form_state) {
+//}
 function c_a_wise_form_submit(&$form, &$form_state) {
 	/*
 	 * loop through the roles and update the content access records appropriately
 	 */
+	//drupal_set_message(t('checkboxes'));
 	//drupal_set_message(sprintf('<pre>%s</pre>', print_r($form_state['values']['wise_roles_checkboxes'], TRUE)));
 	$selected_roles = array_filter($form_state['values']['wise_roles_checkboxes']);
+	//drupal_set_message(t('selected roles'));
 	//drupal_set_message(sprintf('<pre>%s</pre>', print_r($selected_roles, TRUE)));
 	foreach($form_state['values']['wise_roles_checkboxes'] as $rid=>$rid_selected) {
 		// drupal_set_message(sprintf('<pre>%s</pre>', print_r($rid, TRUE)));
@@ -1029,6 +1065,7 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 /*
  * Implementation of hook_theme().
  */
+/*
 function c_a_wise_theme() {
 	return array(
 			'c_a_wise_form' => array(
@@ -1036,3 +1073,4 @@ function c_a_wise_theme() {
 			),
 	);
 }
+*/
