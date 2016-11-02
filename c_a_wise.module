@@ -74,7 +74,7 @@ function c_a_wise_form($form,&$form_state) {
 				'partners_off_weight',
 				'submit_label',
 				'submit_weight',
-				'submit_succes_message',))
+				'submit_success_message',))
 	->orderBy('c_a_wise_id','ASC');
 	$parameter_query_results = $parameter_query->execute()->fetchAll();
 	$checkbox_title='';
