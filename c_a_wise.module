@@ -1021,70 +1021,80 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 				/*
 				 * if selected make sure pair 1 is in the block_role table, and pair 2 is not
 				 * if not selected make sure pair 2 is in the block_role table and pair 1 is not
+				 * do nothing if either of pair 1 is null
+				 * ignore adding/removing pair 2 if either is null
 				 */
-				$blockrole_query_results = array();
-				$blockrole_query = db_select("block_role")
-				->fields('block_role',array('module','delta','rid'))
-				->condition('module',$module,"=")
-				->condition('delta',$delta,"=")
-				->condition('rid',$rid,"=");
-				$blockrole_query_results = $blockrole_query->execute()->fetchAll();
-				$blockroleNOT_query_results = array();
-				$blockroleNOT_query = db_select("block_role")
-				->fields('block_role',array('module','delta','rid'))
-				->condition('module',$off_module,"=")
-				->condition('delta',$off_delta,"=")
-				->condition('rid',$rid,"=");
-				$blockroleNOT_query_results = $blockroleNOT_query->execute()->fetchAll();
-				if($rid_selected>0) {
-					/*
-					 * pair 1 needs to be in the block_role table
-					 */
-					if($blockrole_query_results) {
-						// do nothing, it is there already
-					} else {
-						// add it
-						$blunk = db_insert('block_role')
-						->fields(array(
-								'module' => $module,
-								'delta' => $delta,
-								'rid' => $rid,
-						))
-						->execute();
-					}
-					/*
-					 * pair 2 needs to NOT be in the block_role table
-					 */
-					$blunk = db_delete('block_role')
-					->condition('module',$off_module,"=")
-					->condition('delta',$off_delta,"=")
-					->condition('rid',$rid,"=")
-					->execute();
-				} else { // if($rid_selected>0)
-					/*
-					 * pair 1 needs to NOT be in the block_role table
-					 */
-					$blunk = db_delete('block_role')
+				if ($module && $delta) {
+					$blockrole_query_results = array();
+					$blockrole_query = db_select("block_role")
+					->fields('block_role',array('module','delta','rid'))
 					->condition('module',$module,"=")
 					->condition('delta',$delta,"=")
-					->condition('rid',$rid,"=")
-					->execute();
-					/*
-					 * pair 2 needs to be in the block_role table
-					 */
-					if($blockroleNOT_query_results) {
-						// do nothing, it is there already
-					} else {
-						// add it
-						$blunk = db_insert('block_role')
-						->fields(array(
-								'module' => $off_module,
-								'delta' => $off_delta,
-								'rid' => $rid,
-						))
-						->execute();
+					->condition('rid',$rid,"=");
+					$blockrole_query_results = $blockrole_query->execute()->fetchAll();
+					if ($off_module && $off_delta) {
+						$blockroleNOT_query_results = array();
+						$blockroleNOT_query = db_select("block_role")
+						->fields('block_role',array('module','delta','rid'))
+						->condition('module',$off_module,"=")
+						->condition('delta',$off_delta,"=")
+						->condition('rid',$rid,"=");
+						$blockroleNOT_query_results = $blockroleNOT_query->execute()->fetchAll();
 					}
-				} // if($rid_selected>0)
+					if($rid_selected>0) {
+						/*
+						 * pair 1 needs to be in the block_role table
+						 */
+						if($blockrole_query_results) {
+							// do nothing, it is there already
+						} else {
+							// add it
+							$blunk = db_insert('block_role')
+							->fields(array(
+									'module' => $module,
+									'delta' => $delta,
+									'rid' => $rid,
+							))
+							->execute();
+						}
+						/*
+						 * pair 2 needs to NOT be in the block_role table
+						 */
+						if ($off_module && $off_delta) {
+							$blunk = db_delete('block_role')
+							->condition('module',$off_module,"=")
+							->condition('delta',$off_delta,"=")
+							->condition('rid',$rid,"=")
+							->execute();
+						}
+					} else { // if($rid_selected>0)
+						/*
+						 * pair 1 needs to NOT be in the block_role table
+						 */
+						$blunk = db_delete('block_role')
+						->condition('module',$module,"=")
+						->condition('delta',$delta,"=")
+						->condition('rid',$rid,"=")
+						->execute();
+						/*
+						 * pair 2 needs to be in the block_role table
+						 */
+						if ($off_module && $off_delta) {
+							if($blockroleNOT_query_results) {
+								// do nothing, it is there already
+							} else {
+								// add it
+								$blunk = db_insert('block_role')
+								->fields(array(
+										'module' => $off_module,
+										'delta' => $off_delta,
+										'rid' => $rid,
+								))
+								->execute();
+							}
+						}
+					} // if($rid_selected>0)
+				} // if ($module && $delta)
 			} // foreach($ridblock_query_results as $ridblock_record)
 		} else { //if($role)
 			/*
