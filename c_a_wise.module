@@ -73,7 +73,8 @@ function c_a_wise_form($form,&$form_state) {
 				'partners_off_label',
 				'partners_off_weight',
 				'submit_label',
-				'submit_weight',))
+				'submit_weight',
+				'submit_succes_message',))
 	->orderBy('c_a_wise_id','ASC');
 	$parameter_query_results = $parameter_query->execute()->fetchAll();
 	$checkbox_title='';
@@ -87,7 +88,9 @@ function c_a_wise_form($form,&$form_state) {
 		$partners_off_weight = $parameter_record->partners_off_weight;
 		$submit_label = $parameter_record->submit_label;
 		$submit_weight = $parameter_record->submit_weight;
+		$submit_success_message = $parameter_record->submit_success_message;
 	}
+	variable_set('submit_success_message',$submit_success_message);
 	/*
 	 * get the list of controlled roles (by rid) to control from the rid table
 	 */
@@ -290,9 +293,9 @@ function c_a_wise_form($form,&$form_state) {
 			//		'c_a_wise_form_toggle_on_validate',
 			//),
 			//'#limit_validation_errors' => array(),
-			//'#submit' => array(
-			//		'c_a_wise_form_toggle_on_submit',
-			//),
+			'#submit' => array(
+					'c_a_wise_form_toggle_on_submit',
+			),
 			'#buttontype' => 'button',
 			'#value' => t($submit_label_toggle_on),
 			'#weight' => $partners_on_weight,
@@ -304,9 +307,9 @@ function c_a_wise_form($form,&$form_state) {
 			//		'c_a_wise_form_toggle_off_validate'
 			//),
 			//'#limit_validation_errors' => array(),
-			//'#submit' => array(
-			//		'c_a_wise_form_toggle_off_submit'
-			//),
+			'#submit' => array(
+					'c_a_wise_form_toggle_off_submit'
+			),
 			'#buttontype' => 'button',
 			'#value' => t($submit_label_toggle_off),
 			'#weight' => $partners_off_weight,
@@ -420,10 +423,10 @@ function c_a_wise_form_validate(&$form, &$form_state) {
 //}
 //function c_a_wise_form_toggle_off_validate(&$form, &$form_state) {
 //}
-//function c_a_wise_form_toggle_on_submit(&$form, &$form_state) {
-//}
-//function c_a_wise_form_toggle_off_submit(&$form, &$form_state) {
-//}
+function c_a_wise_form_toggle_on_submit(&$form, &$form_state) {
+}
+function c_a_wise_form_toggle_off_submit(&$form, &$form_state) {
+}
 function c_a_wise_form_submit(&$form, &$form_state) {
 	/*
 	 * loop through the roles and update the content access records appropriately
@@ -1091,7 +1094,8 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 			drupal_set_message(t('Invalid role (rid='.$rid.') found in WISE ridnid table.'),'Warning');
 		} // if($role)
 	} // foreach($form_state['values']['wise_roles_checkboxes'] as $rid=>$rid_selected)
-	drupal_set_message(t('Your data has been saved.'));
+	$submit_success_message = variable_get('submit_success_message','Your data has been saved.');
+	drupal_set_message(t('@var',array('@var' => $submit_success_message,)));
 }
 /*
  * Implementation of hook_theme().
