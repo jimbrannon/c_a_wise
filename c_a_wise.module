@@ -226,9 +226,13 @@ function c_a_wise_form($form,&$form_state) {
 					 * there might be some blocks associated with this role
 					 * so check whether they are set to be visible
 					 * set the defaults based on the block settings
-					 *   i.e. see if there is a record for this rid in the block_role table
+					 *   i.e. see if there is a record for this rid in the c_a_wise_ridblock table
+					 *   if so, see if there is a matching record in the DRUPAL block_role table
+					 *   with matching rid, module, delta (note we ignore records that might match
+					 *     the off_module, off_delta values)
 					 *   assumes that if role is controlled and one case is found,
-					 *   then intent is for all cases to be managed identically
+					 *   then the role is "ON"
+					 *     (assume that all blocks for this role should be managed identically)
 					 */
 					if(!$found_default) {
 						$ridblock_query = db_select("c_a_wise_ridblock")
@@ -743,7 +747,7 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 							node_access_acquire_grants($node);
 							module_invoke_all('per_node', $new_permissions);
 						}
-					} else {
+					} else { // if($rid_selected>0)
 						//drupal_set_message(sprintf('<pre>role not selected %s</pre>', print_r($role->name, TRUE)));
 						/*
 						* this role was not selected
@@ -904,7 +908,7 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 							node_access_acquire_grants($node);
 							module_invoke_all('per_node', $new_permissions);
 								
-						} else {
+						} else { // if (isset($permissions))
 							/*
 							 * C A has no record for this node
 							 * really should not happen, but create one with admin permissions only (not the defaults)
@@ -984,82 +988,109 @@ function c_a_wise_form_submit(&$form, &$form_state) {
 							content_access_save_per_node_settings($node, $new_permissions);
 							node_access_acquire_grants($node);
 							module_invoke_all('per_node', $new_permissions);
-						}
-					}
-				} else {
+						} // if (isset($permissions))
+					} // if($rid_selected>0)
+				} else { // if ($node)
 					/*
 					 * skip this node record if the node is invalid
 					 */
 					drupal_set_message(t('Invalid node (nid='.$nid.') found in WISE ridnid table.'),'Warning');
-				}
+				} // if ($node)
+			} // foreach($ridnid_query_results as $ridnid_record) 
+			/*
+			 * find the block records for this role according to the WISE ridblock table
+			 */
+			$ridblock_query = db_select("c_a_wise_ridblock")
+			->fields('c_a_wise_ridblock',array('module','delta','rid','off_module','off_delta'))
+			->condition('rid',$rid,"=");
+			$ridblock_query_results = $ridblock_query->execute()->fetchAll();
+			/*
+			 * for each block record
+			 */
+			foreach($ridblock_query_results as $ridblock_record) {
 				/*
-				 * find the block records for this role according to the WISE ridblock table
+				 * get the ridblock record field values
 				 */
-				$ridblock_query = db_select("c_a_wise_ridblock")
-				->fields('c_a_wise_ridblock',array('module','delta','rid'))
+				$module = $ridblock_record->module;
+				$delta = $ridblock_record->delta;
+				$off_module = $ridblock_record->off_module;
+				$off_delta = $ridblock_record->off_delta;
+				/*
+				 * if selected make sure pair 1 is in the block_role table, and pair 2 is not
+				 * if not selected make sure pair 2 is in the block_role table and pair 1 is not
+				 */
+				$blockrole_query_results = array();
+				$blockrole_query = db_select("block_role")
+				->fields('block_role',array('module','delta','rid'))
+				->condition('module',$module,"=")
+				->condition('delta',$delta,"=")
 				->condition('rid',$rid,"=");
-				$ridblock_query_results = $ridblock_query->execute()->fetchAll();
-				/*
-				 * for each block record
-				 */
-				foreach($ridblock_query_results as $ridblock_record) {
+				$blockrole_query_results = $blockrole_query->execute()->fetchAll();
+				$blockroleNOT_query_results = array();
+				$blockroleNOT_query = db_select("block_role")
+				->fields('block_role',array('module','delta','rid'))
+				->condition('module',$off_module,"=")
+				->condition('delta',$off_delta,"=")
+				->condition('rid',$rid,"=");
+				$blockroleNOT_query_results = $blockroleNOT_query->execute()->fetchAll();
+				if($rid_selected>0) {
 					/*
-					 * get the ridblock record field values
+					 * pair 1 needs to be in the block_role table
 					 */
-					$module = $ridblock_record->module;
-					$delta = $ridblock_record->delta;
+					if($blockrole_query_results) {
+						// do nothing, it is there already
+					} else {
+						// add it
+						$blunk = db_insert('block_role')
+						->fields(array(
+								'module' => $module,
+								'delta' => $delta,
+								'rid' => $rid,
+						))
+						->execute();
+					}
 					/*
-					 * now simply add or remove them from the block_role table
-					 * (really, that's it?! we'll see...) 
+					 * pair 2 needs to NOT be in the block_role table
 					 */
-					$blockrole_query_results = array();
-					$blockrole_query = db_select("block_role")
-					->fields('block_role',array('module','delta','rid'))
+					$blunk = db_delete('block_role')
+					->condition('module',$off_module,"=")
+					->condition('delta',$off_delta,"=")
+					->condition('rid',$rid,"=")
+					->execute();
+				} else { // if($rid_selected>0)
+					/*
+					 * pair 1 needs to NOT be in the block_role table
+					 */
+					$blunk = db_delete('block_role')
 					->condition('module',$module,"=")
 					->condition('delta',$delta,"=")
-					->condition('rid',$rid,"=");
-					$blockrole_query_results = $blockrole_query->execute()->fetchAll();
-					if($rid_selected>0) {
-						/*
-						 * it needs to be in the block_role table
-						 */
-						if($blockrole_query_results) {
-							// do nothing, it is there already
-						} else {
-							// add it
-							$blunk = db_insert('block_role')
-							->fields(array(
-									'module' => $module,
-									'delta' => $delta,
-									'rid' => $rid,
-							))
-							->execute();
-						}
+					->condition('rid',$rid,"=")
+					->execute();
+					/*
+					 * pair 2 needs to be in the block_role table
+					 */
+					if($blockroleNOT_query_results) {
+						// do nothing, it is there already
 					} else {
-						/*
-						 * it needs to NOT be in the block_role table
-						 */
-						if($blockrole_query_results) {
-							// remove it
-							$blunk = db_delete('block_role')
-							->condition('module',$module,"=")
-							->condition('delta',$delta,"=")
-							->condition('rid',$rid,"=")
-							->execute();
-						} else {
-							// do nothing, it is not there
-						}
+						// add it
+						$blunk = db_insert('block_role')
+						->fields(array(
+								'module' => $off_module,
+								'delta' => $off_delta,
+								'rid' => $rid,
+						))
+						->execute();
 					}
-				}
-			}
-		} else {
+				} // if($rid_selected>0)
+			} // foreach($ridblock_query_results as $ridblock_record)
+		} else { //if($role)
 			/*
 			 * skip this role - should not happen
 			 * role should not be in list if it is not valid
 			 */
 			drupal_set_message(t('Invalid role (rid='.$rid.') found in WISE ridnid table.'),'Warning');
-		}
-	}
+		} // if($role)
+	} // foreach($form_state['values']['wise_roles_checkboxes'] as $rid=>$rid_selected)
 	drupal_set_message(t('Your data has been saved.'));
 }
 /*
